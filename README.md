@@ -61,7 +61,7 @@ KipuBank es un contrato inteligente descentralizado que funciona como un banco s
 # 5. Completa el formulario con:
 #    - Compiler: 0.8.0+
 #    - License: MIT
-#    - Code: Pega el código completo
+#    - Code: Pega el código completo y el siguiente bytecode de los parametros (_maxWithdrawalAmount y _bankCap): 0x00000000000000000000000000000000000000000000000000038d7ea4c68000000000000000000000000000000000000000000000000000002386f26fc10000
 
 
 
