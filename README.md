@@ -18,12 +18,6 @@ KipuBank es un contrato inteligente descentralizado que funciona como un banco s
   - Funciones de consulta para ver balances y estadísticas
   - Código 100% verificable en block explorer
 
-### 🔧 Características Técnicas
-- **Lenguaje**: Solidity 0.8.0+
-- **Redes**: Compatible con Ethereum Mainnet y testnets (Sepolia, Goerli)
-- **Seguridad**: Errores personalizados, protección anti-reentrancia, patrones CEI
-- **Gas Optimization**: Uso de inmutables y errores personalizados para eficiencia
-
 ---
 
 ## 🚀 Instrucciones de Despliegue
@@ -53,8 +47,8 @@ KipuBank es un contrato inteligente descentralizado que funciona como un banco s
 //    - Environment: Injected Provider - MetaMask
 //    - Contract: KipuBank
 //    - Constructor Parameters:
-//      * _maxWithdrawalAmount: 1000000000000000000 (1 ETH)
-//      * _bankCap: 5000000000000000000 (5 ETH)
+//      * _maxWithdrawalAmount: 1000000000000000
+//      * _bankCap: 10000000000000000
 7. Haz clic en "Transact"
 8. Confirma en MetaMask
 
