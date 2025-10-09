@@ -1,6 +1,6 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
+
 
 contract KipuBank {
     
@@ -24,32 +24,22 @@ contract KipuBank {
     event WithdrawalRequested(address indexed user, uint256 amount);
     event WithdrawalCompleted(address indexed user, uint256 amount);
     event BankCapReached(uint256 currentBalance, uint256 bankCap);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    // ============ ERRORES PERSONALIZADOS ============
-    error ExceedsBankCap();
-    error ExceedsMaxWithdrawal();
-    error InsufficientBalance();
-    error OnlyOwner();
-    error ZeroAmount();
-    error TransferFailed();
-    error ReentrancyGuard();
 
     // ============ MODIFICADORES ============
     modifier onlyOwner() {
-        if (msg.sender != owner) revert OnlyOwner();
+        require(msg.sender == owner, "Only owner");
         _;
     }
 
     modifier nonReentrant() {
-        if (_reentrancyLock) revert ReentrancyGuard();
+        require(!_reentrancyLock, "Reentrancy detected");
         _reentrancyLock = true;
         _;
         _reentrancyLock = false;
     }
 
     modifier nonZeroAmount(uint256 amount) {
-        if (amount == 0) revert ZeroAmount();
+        require(amount > 0, "Zero amount");
         _;
     }
 
@@ -66,12 +56,12 @@ contract KipuBank {
     // ============ FUNCIÓN PARA DEPOSITAR ETH ============
     function deposit() external payable {
         // CHECK: Verificaciones de seguridad
-        if (msg.value == 0) revert ZeroAmount();
+        require(msg.value > 0, "Zero amount");
         
         uint256 currentTotalBalance = address(this).balance;
         if (currentTotalBalance > bankCap) {
             emit BankCapReached(currentTotalBalance, bankCap);
-            revert ExceedsBankCap();
+            revert("Exceeds bank cap");
         }
 
         // EFFECTS: Actualizar estado interno
@@ -81,8 +71,6 @@ contract KipuBank {
         _balances[msg.sender] += msg.value;
         totalDeposits++;
 
-        // INTERACTIONS: No hay interacciones externas en depósito
-
         emit Deposit(msg.sender, msg.value);
     }
 
@@ -90,52 +78,32 @@ contract KipuBank {
     function requestWithdrawal(uint256 amount) 
         external 
         nonReentrant 
-        nonZeroAmount(amount) 
     {
-        // CHECK: Verificaciones de límites y balance
-        if (amount > maxWithdrawalAmount) revert ExceedsMaxWithdrawal();
-        if (amount > _balances[msg.sender]) revert InsufficientBalance();
+        require(amount > 0, "Zero amount");
+        require(amount <= maxWithdrawalAmount, "Exceeds max withdrawal");
+        require(amount <= _balances[msg.sender], "Insufficient balance");
 
         // EFFECTS: Actualizar estado antes de interacciones
         _balances[msg.sender] -= amount;
         _pendingWithdrawals[msg.sender] += amount;
         totalWithdrawals++;
 
-        // INTERACTIONS: No hay transferencias aquí (patrón pull)
-
         emit WithdrawalRequested(msg.sender, amount);
     }
 
     // ============ COMPLETAR RETIRO ============
     function completeWithdrawal() external nonReentrant {
-        // CHECK: Verificar que hay fondos pendientes
         uint256 amount = _pendingWithdrawals[msg.sender];
-        if (amount == 0) revert ZeroAmount();
+        require(amount > 0, "Zero amount");
 
         // EFFECTS: Actualizar estado antes de interacciones
         _pendingWithdrawals[msg.sender] = 0;
 
         // INTERACTIONS: Transferencia (último paso)
-        _safeTransferETH(msg.sender, amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
 
         emit WithdrawalCompleted(msg.sender, amount);
-    }
-
-    // ============ FUNCIÓN PARA TRANSFERIR OWNERSHIP ============
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroAmount();
-        emit OwnershipTransferred(owner, newOwner);
-        
-        // Note: owner es immutable, necesitaríamos redeploy para cambiar ownership
-        // Esta función es placeholder para versión con owner mutable
-    }
-
-    // ============ FUNCIÓN PRIVADA PARA TRANSFERENCIAS SEGURAS ============
-    function _safeTransferETH(address to, uint256 amount) private {
-        if (address(this).balance < amount) revert InsufficientBalance();
-        
-        (bool success, ) = to.call{value: amount}("");
-        if (!success) revert TransferFailed();
     }
 
     // ============ FUNCIONES DE CONSULTA (VIEW) ============
@@ -165,31 +133,8 @@ contract KipuBank {
         );
     }
 
-    // ============ FUNCIONES DEL OWNER ============
-    function withdrawExcess(uint256 amount) external onlyOwner nonZeroAmount(amount) {
-        uint256 currentBalance = address(this).balance;
-        uint256 usedBalance = _calculateUsedBalance();
-        uint256 excess = currentBalance - usedBalance;
-        
-        if (amount > excess) revert InsufficientBalance();
-
-        _safeTransferETH(msg.sender, amount);
-    }
-
-    function _calculateUsedBalance() private view returns (uint256) {
-        uint256 usedBalance = 0;
-        uint256 length = _userAddresses.length;
-        
-        for (uint256 i = 0; i < length; ) {
-            usedBalance += _balances[_userAddresses[i]];
-            unchecked { ++i; }
-        }
-        return usedBalance;
-    }
-
     // ============ RECEIVE PARA DEPÓSITOS DIRECTOS ============
     receive() external payable {
-        // Lógica simplificada para receive
         _balances[msg.sender] += msg.value;
         totalDeposits++;
         emit Deposit(msg.sender, msg.value);
