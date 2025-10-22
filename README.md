@@ -1,92 +1,190 @@
+🏦 KipuBank — Smart Contract Bank
+📖 Contract Overview
 
-# 🏦 KipuBank - Contrato Inteligente Bancario
-
-## 📖 Descripción del Contrato
-
-### ¿Qué es KipuBank?
-KipuBank es un contrato inteligente descentralizado que funciona como un banco seguro para Ethereum, permitiendo a los usuarios **depositar y retirar ETH** con múltiples capas de seguridad y límites configurables.
-
-### 🎯 Funcionalidades Principales
-- **💰 Depósitos Seguros**: Los usuarios pueden depositar ETH en bóvedas personales
-- **🎫 Retiros con Límite**: Sistema de retiro en dos pasos (solicitar + completar) con límite máximo por transacción
-- **🛡️ Seguridad Avanzada**: 
-  - Patrón **Pull-over-Push** para prevenir ataques de reentrancia
-  - **Checks-Effects-Interactions** en todas las funciones
-  - Límite global de depósitos (`bankCap`) para proteger fondos
-- **📊 Transparencia Total**: 
-  - Eventos emitidos para todas las operaciones
-  - Funciones de consulta para ver balances y estadísticas
-  - Código 100% verificable en block explorer
-
----
-
-## 🚀 Instrucciones de Despliegue
-
-### Prerrequisitos
-- **📱 MetaMask** instalado y configurado
-- **💸 ETH de testnet** (para Sepolia puedes usar [Sepolia Faucet](https://sepoliafaucet.com/))
-- **🌐 Remix IDE** ([remix.ethereum.org](https://remix.ethereum.org/))
-
-### Pasos para Desplegar
-
-#### 1. Preparar el Entorno
-```bash
-# Conectar MetaMask a Sepolia Testnet
-1. Abre MetaMask
-2. Selecciona "Sepolia Test Network" 
-3. Asegúrate de tener ETH de testnet
+KipuBank is a smart contract that models a secure ETH bank with configurable limits and pull-style withdrawals.
+The implementation follows the patterns and constraints required:
 
 
-#### 2. Preparar el Entorno
-1. Ve a https://remix.ethereum.org/
-2. Crea un nuevo archivo: KipuBank.sol
-3. Pega el código del contrato
-4. Compila (Solidity Compiler → Compile KipuBank.sol)
-5. Ve a "Deploy & Run Transactions"
-6. Configura:
-//    - Environment: Injected Provider - MetaMask
-//    - Contract: KipuBank
-//    - Constructor Parameters:
-//      * _maxWithdrawalAmount: 1000000000000000
-//      * _bankCap: 10000000000000000
-7. Haz clic en "Transact"
-8. Confirma en MetaMask
+Solidity 0.8.26 (custom errors available)
+
+Check → Effects → Interaction
+
+Pull-over-push withdrawal pattern
+
+Reentrancy guard
+
+Custom errors (no plain require strings)
+
+NatSpec for public API (in the contract source)
+
+🎯 Core Features
+
+deposit() (payable) — deposit ETH into your account.
+
+receive() — accept direct ETH transfers; routed to the same internal handler.
+
+requestWithdrawal(amount) — request a withdrawal (adds to pendingWithdrawals, subject to maxWithdrawalAmount).
+
+completeWithdrawal() — complete the pending withdrawal; transfers ETH using call.
+
+Per-user counters: depositCount[address] and withdrawalCount[address].
+
+Global counters: totalDepositOps and totalWithdrawalOps.
+
+bankCap — a maximum total ETH the contract is allowed to hold.
+
+maxWithdrawalAmount — maximum allowed per withdrawal request.
+
+nonReentrant modifier + private transfer helper _performTransfer.
+
+emergencyWithdraw(to, amount) — owner-only emergency transfer.
+
+Events for deposits, withdrawal requests, completed withdrawals and when bank cap is reached.
+
+All sensitive checks use custom errors to save gas and follow the assignment requirements.
+
+📌 Public View / Interaction API (short)
+
+deposit() payable
+
+receive() payable (send ETH to contract address)
+
+requestWithdrawal(uint256 amount)
+
+completeWithdrawal()
+
+getBalance(address user) -> uint256
+
+getPendingWithdrawal(address user) -> uint256
+
+getUserCount() -> uint256
+
+getBankStats() -> (depositsOps, withdrawalOps, totalBalance, users)
+
+depositCount(address) -> uint256
+
+withdrawalCount(address) -> uint256
+
+emergencyWithdraw(address to, uint256 amount) — owner-only
+
+🔒 Security Notes
+
+Uses nonReentrant guard and Check–Effects–Interactions.
+
+Uses a private transfer helper _performTransfer that reverts with custom error TransferFailed if call fails.
+
+Minimizes storage accesses by copying state to memory first (e.g. uint256 userBalance = balances[from];), then writing once.
+
+Custom errors (cheaper than revert strings) are used for all failure conditions.
+
+🚀 Deployment (Remix)
+Prerequisites
+
+MetaMask (or other injected provider) connected to target network (e.g., Sepolia)
+
+ETH on the chosen testnet
+
+Remix IDE: https://remix.ethereum.org
+
+Recommended compile settings in Remix
+
+Open Solidity compiler plugin.
+
+Select compiler 0.8.26 (must match the pragma in the contract).
+
+In Advanced Configuration set EVM version to Default (or a supported name like london/berlin), avoid empty/invalid entries.
+
+Auto compile optional. Click Compile KipuBank.sol.
+
+Make sure the contract top of file has:
+
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+Constructor parameters
+
+constructor(uint256 _maxWithdrawalAmount, uint256 _bankCap)
+
+Both values are in wei. Convert ether → wei before deploying.
+
+Example values:
+
+_maxWithdrawalAmount = 50000000000000000 (0.05 ETH)
+
+_bankCap = 1000000000000000000 (1 ETH)
+
+You can convert ETH to wei in JavaScript console or simply type 0.05 ether in scripts; in Remix constructor input you must paste the numeric wei value.
+
+Deploy (Remix UI)
+
+Go to Deploy & Run Transactions plugin.
+
+Environment: Injected Provider - MetaMask (or other).
+
+Select contract: KipuBank.
+
+Fill constructor arguments (wei numeric values).
+
+Click Deploy, confirm transaction in MetaMask.
+
+✅ How to interact (Remix UI examples)
+Deposit (using function)
+
+In Deployed Contracts locate KipuBank.
+
+In VALUE field enter amount (e.g., 0.05 ether → Remix will convert), or enter the raw wei.
+
+Click deposit(), confirm in wallet.
+
+Deposit (direct transfer / receive)
+
+In Remix Deploy & Run Transactions -> At Address or use Send Transaction to contract address.
+
+Paste contract address in At Address field and press At Address to load the instance.
+
+Use the VALUE field and click the contract's receive() by simply sending ETH to the contract address (Remix does this when you call a payable fallback/receive).
+
+Request withdrawal (pull pattern)
+
+Call requestWithdrawal with the amount in wei (e.g., 50000000000000000 for 0.05 ETH).
+
+This moves that amount to pendingWithdrawals[msg.sender] and decreases your balances[msg.sender] accordingly.
+
+Complete withdrawal
+
+Call completeWithdrawal(). The contract will perform the transfer using a low-level call and revert with TransferFailed on failure.
+
+Check balances & pending
+
+getBalance(address) — returns your stored balance.
+
+getPendingWithdrawal(address) — returns your pending withdrawal amount.
+
+Admin / Owner action
+
+emergencyWithdraw(address to, uint256 amount) — only owner (deployer) can call this.
+
+🔍 Verifying the contract on Etherscan
+
+After deployment, copy the contract address.
+
+Go to the appropriate block explorer (e.g., Sepolia Etherscan).
+
+Click Verify and Publish Contract.
+
+Choose the correct compiler 0.8.26 and license MIT.
+
+Paste the full source code exactly as compiled. Ensure any optimization settings match the compilation you used in Remix.
+
+Provide constructor arguments in the format requested by Etherscan (usually plain ABI-encoded hex or the input values depending on the UI). If you compiled in Remix with default settings, choose matching settings in the verification form.
 
 
-#### 2. Verificar en Etherscan
-# 1. Copia la dirección del contrato desplegado
-# 2. Ve a https://sepolia.etherscan.io/
-# 3. Pega la dirección y busca
-# 4. Haz clic en "Verify and Publish"
-# 5. Completa el formulario con:
-#    - Compiler: 0.8.0+
-#    - License: MIT
-#    - Code: Pega el código completo y el siguiente bytecode de los parametros (_maxWithdrawalAmount y _bankCap): 0x00000000000000000000000000000000000000000000000000038d7ea4c68000000000000000000000000000000000000000000000000000002386f26fc10000
+📝 Notes & Hints
 
+All numeric examples in this README are in wei unless using explicit ether unit (as supported by Remix).
 
+depositCount and withdrawalCount are available as public mappings for per-user operation counts.
 
-DEPOSITO:
-// En "Deployed Contracts" → KipuBank
-// 1. En "VALUE" ingresa: 100000000000000000 (0.1 ETH en wei)
-// 2. Haz clic en "deposit"
-// 3. Confirma en MetaMask
+getBankStats() returns (totalDepositOps, totalWithdrawalOps, address(this).balance, userCount).
 
-CONSULTA BALANCE:
-// 1. Haz clic en "getMyBalance"
-// 2. Verás tu balance actual en wei
-
-SOLICITAR RETIRO:
-// 1. En "requestWithdrawal" ingresa: 50000000000000000 (0.05 ETH)
-// 2. Haz clic en "requestWithdrawal"
-// 3. Confirma en MetaMask
-// 📝 Los fondos ahora están "pendientes"
-
-COMPLETAR RETIRO:
-
-// 1. Haz clic en "completeWithdrawal"
-// 2. Confirma en MetaMask
-// ✅ Los fondos pendientes se transferirán a tu wallet
-
-VER INFORMACION DEL BANCO:
-// 1. Haz clic en "getBankStats"
-// 2. Verás: [depósitos totales, retiros totales, balance total, usuarios]
+The contract uses custom errors; if you try to compile with an older compiler it will fail. Use 0.8.26.
